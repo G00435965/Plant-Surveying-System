@@ -1,0 +1,179 @@
+
+
+#include <WiFi.h>
+#include "secrets.h"
+#include "ThingSpeak.h" // always include thingspeak header file after other header files and custom macros
+#define SECRET_SSID "eir75114808"    // replace MySSID with your WiFi network name
+#define SECRET_PASS "4eUFQDa9qF"  // replace MyPassword with your WiFi password
+
+#define SECRET_CH_ID 2773493      // replace 0000000 with your channel number
+#define SECRET_WRITE_APIKEY "63MN78GHIJXL267V"   // replace XYZ with your channel write API Key
+
+
+#define MOISTURE_PIN 16     /* pin of moisture sensor */
+#define THRESHOLD_VALUE 300 /* threshold for watering the flowers */
+#define MOTOR_PIN 23 
+#define BLINK_LED 13
+#include <DFRobot_DHT11.h>
+
+DFRobot_DHT11 DHT;
+
+char ssid[] = SECRET_SSID;   // your network SSID (name) 
+char pass[] = SECRET_PASS;   // your network password
+int keyIndex = 0;            // your network key Index number (needed only for WEP)
+WiFiClient  client;
+
+#define DHT11_PIN 27
+
+
+unsigned long myChannelNumber = SECRET_CH_ID;
+const char * myWriteAPIKey = SECRET_WRITE_APIKEY;
+
+// Initialize our values
+int number1 = 0;
+int number2 = random(0,100);
+int number3 = random(0,100);
+int number4 = random(0,100);
+String myStatus = "";
+
+void setup() {
+  Serial.begin(115200);  //Initialize serial
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for Leonardo native USB port only
+  }
+  
+  WiFi.mode(WIFI_STA);   
+  ThingSpeak.begin(client);  // Initialize ThingSpeak
+}
+
+void loop() {
+
+
+
+  DHT.read(DHT11_PIN); 
+  float humidity  = DHT.humidity;
+  float tempC = DHT.temperature; //reads temp as Celcius
+
+
+
+  if (tempC > 25 && humidity > 60) {
+  myStatus = String("Temperature and humidity too high.");
+}else if (tempC > 25 && humidity <= 60) {
+  myStatus = String("Temperature is too high.");
+}else if (tempC <= 25 && humidity > 60){
+  myStatus = String("Humidity is too high.");
+}else {
+  myStatus = String("Temperature and humidity are fine.");
+}
+
+
+
+  if (isnan(humidity) || isnan(tempC)) {
+    Serial.println("Failed to read from DHT sensor!");
+  } else {
+    Serial.print("Humidity: ");
+    Serial.print(humidity);
+    Serial.print("%");
+    Serial.print("  |  "); //what is this for
+    Serial.print("Temperature: ");
+    Serial.print(tempC);
+    Serial.print("°C | ");
+}
+
+
+int moistureLevel = analogRead(MOISTURE_PIN);
+    Serial.print("Moisture Level: ");
+    Serial.println(moistureLevel);
+    delay(2000);
+
+
+
+
+
+
+if(moistureLevel < THRESHOLD_VALUE) {
+        digitalWrite(BLINK_LED, HIGH);
+        analogWrite (MOTOR_PIN, 50); 
+        Serial.println(" Motor at slow speed"); //for control
+        delay (2000); //runs for 2 
+        
+        analogWrite (MOTOR_PIN, 100); 
+        Serial.println(" Motor at medium speed");
+        delay (4000); //runs for 4 seconds
+        
+        digitalWrite (MOTOR_PIN, HIGH) ;
+        Serial.println("Motor at top speed. WATER PUMPING!");
+        delay (2000);
+        
+        digitalWrite (MOTOR_PIN, LOW);
+        Serial.println("Motor off. WATER OFF!");
+        delay ( 2000);
+        delay(200);
+        Serial.println("Moisture below threshold! LED ON");
+    } else {
+        digitalWrite(BLINK_LED, LOW);
+        Serial.println("Moisture sufficient. LED OFF");
+    }
+
+
+
+  // Connect or reconnect to WiFi
+  if(WiFi.status() != WL_CONNECTED){
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(SECRET_SSID);
+    while(WiFi.status() != WL_CONNECTED){
+      WiFi.begin(ssid, pass);  // Connect to WPA/WPA2 network. Change this line if using open or WEP network
+      Serial.print(".");
+      delay(5000);     
+    } 
+    Serial.println("\nConnected.");
+  }
+
+
+
+  // set the fields with the values
+  ThingSpeak.setField(1, tempC);
+  ThingSpeak.setField(2, humidity);
+  ThingSpeak.setField(3, moistureLevel);
+
+
+
+  // figure out the status message
+  if(number1 > number2){
+    myStatus = String("field1 is greater than field2"); 
+  }
+  else if(number1 < number2){
+    myStatus = String("field1 is less than field2");
+  }
+  else{
+    myStatus = String("field1 equals field2");
+  }
+  
+
+  // set the status
+  ThingSpeak.setStatus(myStatus);
+  
+
+
+  // write to the ThingSpeak channel
+  int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+  if(x == 200){
+    Serial.println("Channel update successful.");
+  }
+  else{
+    Serial.println("Problem updating channel. HTTP error code " + String(x));
+  }
+  
+
+
+  // change the values
+  number1++;
+  if(number1 > 99){
+    number1 = 0;
+  }
+  number2 = random(0,100);
+  number3 = random(0,100);
+  number4 = random(0,100);
+  
+  delay(20000); // Wait 20 seconds to update the channel again
+}
