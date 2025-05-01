@@ -1,19 +1,16 @@
-
-
 #include <WiFi.h>
 #include "secrets.h"
 #include "ThingSpeak.h" // always include thingspeak header file after other header files and custom macros
-#define SECRET_SSID "eir75114808"    // replace MySSID with your WiFi network name
+#define SECRET_SSID "eir75114808"   // replace MySSID with your WiFi network name
 #define SECRET_PASS "4eUFQDa9qF"  // replace MyPassword with your WiFi password
 
 #define SECRET_CH_ID 2773493      // replace 0000000 with your channel number
-#define SECRET_WRITE_APIKEY "63MN78GHIJXL267V"   // replace XYZ with your channel write API Key
+#define SECRET_WRITE_APIKEY "1JK87NRUHJDT7ZM6"   // replace XYZ with your channel write API Key
 
-
-#define MOISTURE_PIN 16     /* pin of moisture sensor */
+#define MOISTURE_PIN 34     /* pin of moisture sensor */
 #define THRESHOLD_VALUE 300 /* threshold for watering the flowers */
-#define MOTOR_PIN 23 
-#define BLINK_LED 13
+#define MOTOR_PIN 25
+#define DHT11_PIN 27
 #include <DFRobot_DHT11.h>
 
 DFRobot_DHT11 DHT;
@@ -23,7 +20,6 @@ char pass[] = SECRET_PASS;   // your network password
 int keyIndex = 0;            // your network key Index number (needed only for WEP)
 WiFiClient  client;
 
-#define DHT11_PIN 27
 
 
 unsigned long myChannelNumber = SECRET_CH_ID;
@@ -49,11 +45,9 @@ void setup() {
 void loop() {
 
 
-
   DHT.read(DHT11_PIN); 
   float humidity  = DHT.humidity;
   float tempC = DHT.temperature; //reads temp as Celcius
-
 
 
   if (tempC > 25 && humidity > 60) {
@@ -67,19 +61,17 @@ void loop() {
 }
 
 
-
   if (isnan(humidity) || isnan(tempC)) {
     Serial.println("Failed to read from DHT sensor!");
   } else {
     Serial.print("Humidity: ");
     Serial.print(humidity);
     Serial.print("%");
-    Serial.print("  |  "); //what is this for
+    Serial.print("  |  "); 
     Serial.print("Temperature: ");
     Serial.print(tempC);
     Serial.print("°C | ");
 }
-
 
 int moistureLevel = analogRead(MOISTURE_PIN);
     Serial.print("Moisture Level: ");
@@ -90,9 +82,7 @@ int moistureLevel = analogRead(MOISTURE_PIN);
 
 
 
-
 if(moistureLevel < THRESHOLD_VALUE) {
-        digitalWrite(BLINK_LED, HIGH);
         analogWrite (MOTOR_PIN, 50); 
         Serial.println(" Motor at slow speed"); //for control
         delay (2000); //runs for 2 
@@ -107,14 +97,12 @@ if(moistureLevel < THRESHOLD_VALUE) {
         
         digitalWrite (MOTOR_PIN, LOW);
         Serial.println("Motor off. WATER OFF!");
-        delay ( 2000);
+        delay (2000);
         delay(200);
-        Serial.println("Moisture below threshold! LED ON");
+        Serial.println("Moisture below threshold!");
     } else {
-        digitalWrite(BLINK_LED, LOW);
-        Serial.println("Moisture sufficient. LED OFF");
+        Serial.println("Moisture sufficient.");
     }
-
 
 
   // Connect or reconnect to WiFi
@@ -130,12 +118,10 @@ if(moistureLevel < THRESHOLD_VALUE) {
   }
 
 
-
   // set the fields with the values
   ThingSpeak.setField(1, tempC);
   ThingSpeak.setField(2, humidity);
-  ThingSpeak.setField(3, moistureLevel);
-
+  ThingSpeak.setField(4, moistureLevel);
 
 
   // figure out the status message
@@ -154,7 +140,6 @@ if(moistureLevel < THRESHOLD_VALUE) {
   ThingSpeak.setStatus(myStatus);
   
 
-
   // write to the ThingSpeak channel
   int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
   if(x == 200){
@@ -164,7 +149,6 @@ if(moistureLevel < THRESHOLD_VALUE) {
     Serial.println("Problem updating channel. HTTP error code " + String(x));
   }
   
-
 
   // change the values
   number1++;
